@@ -1,0 +1,66 @@
+# Build the single-file Windows exe and attach it to the GitHub Release.
+# Triggered by pushing a v* tag; the release is created from that tag.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Redirected stdout on Windows runners falls back to the ANSI code page and
+# raises UnicodeEncodeError on non-ASCII output. Force UTF-8 everywhere.
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+
+jobs:
+  build:
+    name: Build and publish
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify tkinter is available
+        # compileall alone would pass without tkinter, but the packaged exe
+        # would crash as soon as the status window opens.
+        run: python -c "import tkinter; print('tkinter', tkinter.TkVersion)"
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Build onefile exe
+        run: >
+          python -m PyInstaller --noconfirm --clean --onefile --noconsole
+          --name ZTPopup --icon assets/ztpopup.ico
+          --add-data "assets;assets" zt_popup.py
+
+      - name: Check artifact
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/ZTPopup.exe")) { throw "dist/ZTPopup.exe was not produced" }
+          "size: " + (Get-Item "dist/ZTPopup.exe").Length
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ZTPopup.exe
+          name: ${{ github.ref_name }}
+          body: |
+            免安装单文件版，下载 `ZTPopup.exe` 双击运行即可。
+
+            - 盘中首次上板才弹窗，右下角 3 秒自动关闭
+            - 竞价已涨停的票盘中回封不提示；同一只全程只弹一次
+            - 右下角状态窗常驻显示当前阶段 / 数据日 / 涨停池 / 已提示数
+            - 非交易日直接提示"今日休市"
+            - 14:57 自动结束，关窗即退，不写注册表、不开机自启
+
+            数据来自东方财富公开接口，仅供行情提醒，不构成投资建议。
+          generate_release_notes: true
