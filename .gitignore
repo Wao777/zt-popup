@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Runtime output
+zt_popup.log
+zt_crash.log
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Local artifacts
+build.old.*/
+dist.old.*/
